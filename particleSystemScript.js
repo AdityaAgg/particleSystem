@@ -1,7 +1,6 @@
 let f01AttractionCoef = 100;
 let f01DragCoef = 0.1;
-let attractionPts = [vec2.fromValues(0.0, 0.0)];
-
+let attractionPts = [];
 //data
 let position = [];
 let delta = [];
@@ -11,7 +10,6 @@ let delta = [];
 //constants
 const SIZE = 1000;
 main();
-
 
 
 
@@ -48,10 +46,105 @@ function main() {
     return;
   }
 
+  var handleStart = function(evt) {
+    evt.preventDefault();
+    //alert("touch start");
+    var touches = evt.changedTouches;
+
+    for (var i = 0; i < touches.length; i++) {
+      let touchObj = copyTouch(gl.canvas.clientWidth, gl.canvas.clientHeight, touches[i]);
+
+
+      attractionPts.push(touchObj);
+      var color = colorForTouch(touches[i]);
+
+
+
+    }
+
+  }
+
+
+
+  let handleEnd = function(evt) {
+    evt.preventDefault();
+
+    //var ctx = el.getContext("2d");
+    var touches = evt.changedTouches;
+
+    for (var i = 0; i < touches.length; i++) {
+      var color = colorForTouch(touches[i]);
+      var idx = ongoingTouchIndexById(touches[i].identifier);
+
+      if (idx >= 0) {
+
+        attractionPts.splice(idx, 1);  // remove it; we're done
+
+      } else {
+        console.log("can't figure out which touch to end");
+      }
+    }
+  }
+
+
+
+  let handleMove = function(evt) {
+    evt.preventDefault();
+    //var el = document.getElementsByTagName("canvas")[0];
+    //var ctx = el.getContext("2d");
+    var touches = evt.changedTouches;
+
+    for (var i = 0; i < touches.length; i++) {
+      var color = colorForTouch(touches[i]);
+      var idx = ongoingTouchIndexById(touches[i].identifier);
+
+      if (idx >= 0) {
+        //console.log("continuing touch "+idx);
+        //ctx.beginPath();
+        //console.log("ctx.moveTo(" + ongoingTouches[idx].pageX + ", " + ongoingTouches[idx].pageY + ");");
+        //ctx.moveTo(ongoingTouches[idx].pageX, ongoingTouches[idx].pageY);
+        //console.log("ctx.lineTo(" + touches[i].pageX + ", " + touches[i].pageY + ");");
+        //ctx.lineTo(touches[i].pageX, touches[i].pageY);
+        //ctx.lineWidth = 4;
+        //ctx.strokeStyle = color;
+        //ctx.stroke();
+
+        attractionPts.splice(idx, 1, copyTouch(gl.canvas.clientWidth , gl.canvas.clientHeight, touches[i]));  // swap in the new touch record
+      } else {
+        console.log("can't figure out which touch to continue");
+      }
+    }
+    console.log("move touch");
+  }
+
+
+  let handleCancel = function(evt) {
+    evt.preventDefault();
+    var touches = evt.changedTouches;
+
+    for (var i = 0; i < touches.length; i++) {
+      var idx = ongoingTouchIndexById(touches[i].identifier);
+      attractionPts.splice(idx, 1);  // remove it; we're done
+    }
+  }
+
+
+
+  handleStart.bind(canvas, gl);
+  handleEnd.bind(canvas, gl);
+  handleMove.bind(canvas, gl);
+  handleCancel.bind(canvas, gl);
 
 
 
 
+  canvas.addEventListener("touchstart", handleStart, false);
+
+  canvas.addEventListener("touchend", handleEnd, false);
+  canvas.addEventListener("touchmove", handleMove, false);
+  canvas.addEventListener("touchcancel", handleCancel, false);
+
+  //canvas.addEventListener('click', simulateClick);
 
 
 
@@ -135,6 +228,60 @@ function main() {
 
 
 
+//event listeners
+
+
+function ongoingTouchIndexById(idToFind) {
+  for (var i = 0; i < attractionPts.length; i++) {
+    var id = attractionPts[i].identifier;
+
+    if (id == idToFind) {
+      return i;
+    }
+  }
+  return -1;    // not found
+}
+
+
+
+
+
+// found from : https://developer.mozilla.org/en-US/docs/Web/API/Touch_events
+
+function colorForTouch(touch) {
+  var r = touch.identifier % 16;
+  var g = Math.floor(touch.identifier / 3) % 16;
+  var b = Math.floor(touch.identifier / 7) % 16;
+  r = r.toString(16); // make it a hex digit
+  g = g.toString(16); // make it a hex digit
+  b = b.toString(16); // make it a hex digit
+  var color = "#" + r + g + b;
+  console.log("color for touch with identifier " + touch.identifier + " = " + color);
+  return color;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+//found from : https://developer.mozilla.org/en-US/docs/Web/API/Touch_events
+
+function copyTouch(width, height, touch) {
+  console.log(touch.identifier);
+
+
+  console.log((touch.pageY/height * 400) - 200);
+
+  return { identifier: touch.identifier, location: vec2.fromValues( (touch.pageX/height * 300)-200 , ((touch.pageY/height * 400) - 200) * -1)};
+}
+
 
 
 
@@ -186,10 +333,11 @@ function updateParticle(index) {
 
   //compute forces from all attraction pts
 
+
   for (var i = 0; i< attractionPts.length; ++i) {
 
     let diff = vec2.fromValues(0.0, 0.0);
-    vec2.subtract(diff, attractionPts[i], pt);
+    vec2.subtract(diff, attractionPts[i].location, pt);
 
     let distance = vec2.squaredLength(diff);
 
