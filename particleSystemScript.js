@@ -37,6 +37,12 @@ main();
 //
 function main() {
   const canvas = document.querySelector("#glCanvas");
+  var w = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+  var h = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+  canvas.style.height = h;
+
+  canvas.style.width =  w;
+
   // Initialize the GL context
   const gl = canvas.getContext("webgl");
 
@@ -278,8 +284,8 @@ function copyTouch(width, height, touch) {
 
 
   console.log((touch.pageY/height * 400) - 200);
-
-  return { identifier: touch.identifier, location: vec2.fromValues( (touch.pageX/height * 300)-200 , ((touch.pageY/height * 400) - 200) * -1)};
+  let ratio = width/height;
+  return { identifier: touch.identifier, location: vec2.fromValues( (touch.pageX/width * 400)- 200 , ((touch.pageY/height * 400) - 200) * -1)};
 }
 
 
