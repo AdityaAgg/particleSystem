@@ -4,11 +4,21 @@ let attractionPts = [];
 //data
 let position = [];
 let delta = [];
-//let color = [];
+let color = [];
+
+
+let slowHue = 0.0;
+let slowSaturation = 0.0;
+let slowValue = 0.0;
+let fastHue = 1.0;
+let fastSaturation = 1.0;
+let fastValue = 1.0;
+let hueDirection = 1; //0 for clockwise and 1 for counterclockwise
+
 
 
 //constants
-const SIZE = 1000;
+const SIZE = 1;
 main();
 
 
@@ -101,7 +111,7 @@ function main() {
     var touches = evt.changedTouches;
 
     for (var i = 0; i < touches.length; i++) {
-      var color = colorForTouch(touches[i]);
+      //var color = colorForTouch(touches[i]);
       var idx = ongoingTouchIndexById(touches[i].identifier);
 
       if (idx >= 0) {
@@ -121,6 +131,7 @@ function main() {
       }
     }
     console.log("move touch");
+    console.log(color);
   }
 
 
@@ -162,22 +173,25 @@ function main() {
     attribute vec4 aVertexPosition;
     uniform mat4 uModelViewMatrix;
     uniform mat4 uProjectionMatrix;
+    attribute vec4 aVertexColor;
+    varying lowp vec4 vColor;
 
 
 
     void main() {
       gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-
+      vColor = aVertexColor;
       gl_PointSize = 1.0;
     }
   `;
 
   //varying lowp vec4 vColor;
   const fsSource = `
-
+      varying lowp vec4 vColor;
 
       void main() {
-        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+
+        gl_FragColor = vColor;
       }
     `;
 
@@ -188,7 +202,7 @@ function main() {
     program: shaderProgram,
     attribLocations: {
       vertexPosition: gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
-    //  vertexColor: gl.AttribLocation(shaderProgram, 'aVertexColor'),
+      vertexColor: gl.getAttribLocation(shaderProgram, 'aVertexColor'),
     },
     uniformLocations: {
       projectionMatrix: gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
@@ -201,12 +215,14 @@ function main() {
    var then = 0;
 
    initParticles(400, 400);
-   // Draw the scene repeatedly
+   //updateParticle(0);
+   //Draw the scene repeatedly
    function render(now) {
      for(let i = 0; i<delta.length; ++i) {
        updateParticle(i);
      }
      const buffers = initBuffers(gl);
+     console.log(color);
      now *= 0.001;  // convert to seconds
      const deltaTime = now - then;
      then = now;
@@ -262,7 +278,7 @@ function colorForTouch(touch) {
   g = g.toString(16); // make it a hex digit
   b = b.toString(16); // make it a hex digit
   var color = "#" + r + g + b;
-  console.log("color for touch with identifier " + touch.identifier + " = " + color);
+  //console.log("color for touch with identifier " + touch.identifier + " = " + color);
   return color;
 }
 
@@ -298,14 +314,91 @@ function copyTouch(width, height, touch) {
 
 
 
+//returns a speed from 0 to 1
+function getSpeedCoef(v) {
+  let coef;
 
-// function SpeedCoef(let v) {
-//   let coef;
-//   coef = log(v.x * v.x  + v.y + v.y + 1)/4.5f;
-//   coef = Math.min(coef, 1.0f);
-//   return coef;
-// }
+   coef = Math.log(v[0] * v[0]  + v[1] * v[1] + 1)/4.5;
+   coef = Math.min(coef, 1.0);
 
+   return coef;
+}
+
+
+
+
+function getHue(coef) {
+  let hue;
+  let sh = slowHue;
+  let fh = fastHue;
+  if(sh < fh && hueDirection == 0) {
+    sh += 1;
+  } else if(sh > fh && hueDirection == 1) {
+    fh += 1;
+  }
+  hue = (1 - coef) * sh + coef * fh;
+  if(hue >= 1) {
+    hue -= 1;
+  }
+
+  return hue;
+}
+
+
+function getSaturation(coef) {
+  return (1-coef) * slowSaturation  + coef * fastSaturation;
+}
+
+function getValue(coef) {
+  return (1-coef) * slowValue + coef * fastValue;
+}
+
+function hsv2rgba(h, s, v)
+{
+
+  let rgba;
+  let h6 = 6 * h;
+  let r, g, b;
+  let coef;
+  let a;
+  if(h6 < 1) {
+    r = 0;
+    g = 1 - h6;
+    b = 1;
+  } else if (h6 < 2) {
+    r = h6 - 1;
+    g = 0;
+    b = 1;
+  } else if (h6 < 3) {
+    r = 1;
+    g = 0;
+    b = 3 - h6;
+  } else if (h6 < 4) {
+    r = 1;
+    g = h6 - 3;
+    b = 0;
+  } else if(h6 < 5) {
+    r = 5 - h6;
+    g = 1;
+    b = 0;
+  } else {
+    r = 0;
+    g = 1;
+    b = h6 - 5;
+  }
+
+  coef = v * s;
+
+  r = v - coef * r;
+  g = v - coef * g;
+  b = v - coef * b;
+  //console.log("r " +  r + "g " + g + "b " + b);
+
+  a = 1.0;
+  rgba = vec4.fromValues(r, g, b, a);
+  //console.log(rgba);
+  return rgba;
+}
 
 //initialize the particles
 function initParticles(width, height) {
@@ -321,7 +414,10 @@ function initParticles(width, height) {
     position.push((r * Math.sin(theta) + 1));
 
     delta.push(vec2.fromValues(0.0, 0.0));
+    speedCoef = getSpeedCoef(delta[i]);
 
+    let c = hsv2rgba(getHue(speedCoef), getSaturation(speedCoef), getValue(speedCoef));
+    color.push(c);
   }
 }
 
@@ -354,7 +450,7 @@ function updateParticle(index) {
       distance = 1;
     }
 
-    //speedCoef = SpeedCoef(v);
+
     let smallAcceleration = vec2.create();
     vec2.scale(smallAcceleration, diff, (f01AttractionCoef/distance));
     vec2.add(acc, acc, smallAcceleration);
@@ -365,6 +461,14 @@ function updateParticle(index) {
 
   position[index * offsetFactor] += delta[index][0];
   position[index * offsetFactor + 1] += delta[index][1];
+  speedCoef = getSpeedCoef(delta[index]);
+  let c = hsv2rgba(getHue(speedCoef), getSaturation(speedCoef), getValue(speedCoef));
+  color[index] = c;
+  color[index][0] += 0.2;
+  color[index][1] += 0.2;
+  color[index][2] += 0.2;
+
+  //console.log(color[index]);
 
   vec2.scale(delta[index],  delta[index], f01DragCoef);
 
@@ -442,26 +546,27 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
   }
 
 
-  //for color
-  // {
-  //   const numComponents = 4;
-  //   const type = gl.FLOAT;
-  //   const normalize = false;
-  //   const stride = 0;
-  //   const offset = 0;
-  //
-  //
-  //   gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
-  //   gl.vertexAttribPointer(
-  //       programInfo.attribLocations.vertexColor,
-  //       numComponents,
-  //       type,
-  //       normalize,
-  //       stride,
-  //       offset);
-  //   gl.enableVertexAttribArray(
-  //       programInfo.attribLocations.vertexColor);
-  // }
+  //Tell WebGL how to pull out colors from color
+  //buffer into vertexColor attribute
+  {
+    const numComponents = 4;  // pull out 2 values per iteration
+    const type = gl.FLOAT;    // the data in the buffer is 32bit floats
+    const normalize = false;  // don't normalize
+    const stride = 0;         // how many bytes to  from one set of values to the next
+                              // 0 = use type and numComponents above
+    const offset = 0;         // how many bytes inside the buffer to start from
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
+    gl.vertexAttribPointer(
+        programInfo.attribLocations.vertexColor,
+        numComponents,
+        type,
+        normalize,
+        stride,
+        offset);
+    gl.enableVertexAttribArray(
+        programInfo.attribLocations.vertexColor);
+  }
+
 
 
   // Tell WebGL to use our program when drawing
@@ -506,6 +611,15 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 //*********Initialize buffers
 function initBuffers(gl) {
 
+  const colorBuffer = gl.createBuffer();
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+
+
+  gl.bufferData(gl.ARRAY_BUFFER,
+                 new Float32Array(color),
+                 gl.STATIC_DRAW);
+
   // Create a buffer for the square's positions.
 
   const positionBuffer = gl.createBuffer();
@@ -537,9 +651,6 @@ function initBuffers(gl) {
   //   0.0,  0.0,  1.0,  1.0,    // blue
   // ];
 
-  // gl.bufferData(gl.ARRAY_BUFFER,
-  //               new Float32Array(colors),
-  //               gl.STATIC_DRAW);
 
 
 
@@ -553,7 +664,7 @@ function initBuffers(gl) {
 
   return {
     position: positionBuffer,
-    //color: colorBuffer,
+    color: colorBuffer,
   };
 }
 
