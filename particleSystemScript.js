@@ -18,7 +18,7 @@ let hueDirection = 1; //0 for clockwise and 1 for counterclockwise
 
 
 //constants
-const SIZE = 1;
+const SIZE = 5000;
 main();
 
 
@@ -131,7 +131,6 @@ function main() {
       }
     }
     console.log("move touch");
-    console.log(color);
   }
 
 
@@ -220,9 +219,12 @@ function main() {
    function render(now) {
      for(let i = 0; i<delta.length; ++i) {
        updateParticle(i);
+
+
      }
+
      const buffers = initBuffers(gl);
-     console.log(color);
+     //console.log(color);
      now *= 0.001;  // convert to seconds
      const deltaTime = now - then;
      then = now;
@@ -417,7 +419,10 @@ function initParticles(width, height) {
     speedCoef = getSpeedCoef(delta[i]);
 
     let c = hsv2rgba(getHue(speedCoef), getSaturation(speedCoef), getValue(speedCoef));
-    color.push(c);
+    color.push(c[0]);
+    color.push(c[1]);
+    color.push(c[2]);
+    color.push(c[3]);
   }
 }
 
@@ -463,12 +468,15 @@ function updateParticle(index) {
   position[index * offsetFactor + 1] += delta[index][1];
   speedCoef = getSpeedCoef(delta[index]);
   let c = hsv2rgba(getHue(speedCoef), getSaturation(speedCoef), getValue(speedCoef));
-  color[index] = c;
-  color[index][0] += 0.2;
-  color[index][1] += 0.2;
-  color[index][2] += 0.2;
+  //color[index] = c;
 
-  //console.log(color[index]);
+
+
+  color[index * 4] = c[0];
+  color[index * 4  + 1] = c[1];
+  color[index * 4 + 2] = c[2];
+  color[index * 4 + 3] =  c[3];
+
 
   vec2.scale(delta[index],  delta[index], f01DragCoef);
 
