@@ -17,11 +17,11 @@ let fastSaturation = 1.0;
 let fastValue = 1.0;
 let hueDirection = 1; //0 for clockwise and 1 for counterclockwise
 
-let spriteDim = 6;
+let spriteDim = 256;
 
 
 //constants
-const SIZE = 5000;
+const SIZE = 500;
 main();
 
 
@@ -201,7 +201,7 @@ function main() {
       uniform sampler2D uSampler;
       void main() {
 
-        gl_FragColor =  vec4(texture2D(uSampler, vTextureCoord).r * 0.4 + vColor.r * 0.6, texture2D(uSampler, vTextureCoord).g * 0.4 + vColor.g * 0.6, texture2D(uSampler, vTextureCoord).b * 0.4 + vColor.b * 0.6, texture2D(uSampler, vTextureCoord).a);
+        gl_FragColor =  vec4((vColor.r) * floor(texture2D(uSampler, vTextureCoord).r + 0.5) * texture2D(uSampler, vTextureCoord).a , (vColor.g)* floor(texture2D(uSampler, vTextureCoord).g + 0.5) * texture2D(uSampler, vTextureCoord).a,(vColor.b) * floor(texture2D(uSampler, vTextureCoord).r + 0.5) *  texture2D(uSampler, vTextureCoord).a, texture2D(uSampler, vTextureCoord).a);
 
       }
     `;
@@ -231,7 +231,7 @@ function main() {
    //updateParticle(0);
    //Draw the scene repeatedly
 
-   const texture = loadTexture(gl, 'img/sprite2.png');
+   const texture = loadTexture(gl, 'img/sprite1.png');
    function render(now) {
      for(let i = 0; i<delta.length; ++i) {
        updateParticle(i);
@@ -578,12 +578,13 @@ function updateParticle(index) {
   //color[index] = c;
 
 
-
-  color[index * 4 * 6] = c[0];
-  color[index * 4 * 6  + 1] = c[1];
-  color[index * 4 * 6 + 2] = c[2];
-  color[index * 4 * 6 + 3] =  c[3];
-
+  for(let i = 0; i < 6; ++i) {
+  //comment
+  color[index * 4 * 6 + 4 * i] = c[0];
+  color[index * 4 * 6 + 4 * i + 1] = c[1];
+  color[index * 4 * 6 + 4 * i + 2] = c[2];
+  color[index * 4 * 6 + 4 * i + 3] =  c[3];
+}
 
   vec2.scale(delta[index],  delta[index], f01DragCoef);
 
